@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d4f3c">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>مكتبة السبزواري العامة</title>
+<style>
+  :root{
+    --bg:#f4f1ea; --card:#ffffff; --ink:#1d2b26; --muted:#6b7a74;
+    --brand:#0d4f3c; --brand2:#146b52; --gold:#c9a227; --line:#e4ded1;
+    --ok:#1a7f5a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"Segoe UI", Tahoma, "Arial", sans-serif;
+    background:var(--bg); color:var(--ink);
+    min-height:100vh;
+  }
+
+  /* ===== الشريط العلوي ===== */
+  header{
+    position:sticky; top:0; z-index:50;
+    background:linear-gradient(135deg,var(--brand),var(--brand2));
+    color:#fff;
+    height:62px; display:flex; align-items:center;
+    padding:0 14px;
+  }
+  /* شريط البحث — يثبت أسفل الهيدر على الحاسوب، ويبقى وحده ثابتاً على الهاتف */
+  .tools-bar{
+    position:sticky; top:62px; z-index:49;
+    background:linear-gradient(135deg,var(--brand),var(--brand2));
+    color:#fff; padding:10px 14px;
+    box-shadow:0 2px 12px rgba(0,0,0,.18);
+  }
+  .tools-bar .tools{margin-top:0}
+  .brand{display:flex; align-items:center; gap:10px; flex-wrap:wrap; width:100%}
+  .logo{
+    width:38px;height:38px;border-radius:10px;flex:none;
+    background:rgba(255,255,255,.15); display:grid;place-items:center;
+    font-size:20px;
+  }
+  .brand h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px}
+  .spacer{flex:1}
+
+  .qr-btn{
+    border:1px solid rgba(255,255,255,.4); background:rgba(255,255,255,.12);
+    color:#fff; border-radius:10px; padding:8px 12px; font-size:13px;
+    cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:6px;
+  }
+  .qr-btn:active{transform:scale(.97)}
+  .qr-btn.mini{padding:7px 9px; font-size:15px; line-height:1}
+
+  /* ===== الإكمال التلقائي ===== */
+  .sugg{
+    position:absolute; top:calc(100% + 6px); right:0; left:0; z-index:70;
+    background:#fff; border:1px solid var(--line); border-radius:12px;
+    box-shadow:0 12px 30px rgba(0,0,0,.2); overflow:hidden; text-align:right;
+    max-height:320px; overflow-y:auto;
+  }
+  .sugg[hidden]{display:none}
+  .sugg .item{
+    padding:11px 14px; font-size:15px; cursor:pointer; display:flex;
+    gap:9px; align-items:center; color:var(--ink); line-height:1.5;
+  }
+  .sugg .item:hover, .sugg .item.on{background:#eef6f2}
+  .sugg .item .ic{opacity:.45; flex:none}
+  .sugg .item .txt{flex:1; word-break:break-word}
+  .sugg .item .tag{
+    flex:none; font-size:11px; background:#f1efe6; color:var(--muted);
+    border-radius:999px; padding:2px 8px;
+  }
+
+  /* ===== أدوات البحث ===== */
+  .tools{
+    display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;
+  }
+  .search-wrap{position:relative; flex:1; min-width:200px}
+  .search-wrap svg{
+    position:absolute; right:12px; top:50%; transform:translateY(-50%);
+    opacity:.5; pointer-events:none;
+  }
+  #q{
+    width:100%; padding:12px 40px 12px 14px; border-radius:12px;
+    border:none; font-size:16px; font-family:inherit; background:#fff;
+    color:var(--ink); outline:2px solid transparent; transition:outline .15s;
+  }
+  #q:focus{outline-color:var(--gold)}
+  select#cat{
+    border:none; border-radius:12px; padding:12px 10px; font-size:14px;
+    font-family:inherit; background:#fff; color:var(--ink); max-width:46%;
+    outline:2px solid transparent;
+  }
+  select#cat:focus{outline-color:var(--gold)}
+
+  /* ===== شريط الإحصاء ===== */
+  .stats{
+    display:flex; gap:14px; flex-wrap:wrap; align-items:center;
+    padding:12px 16px 0; font-size:13px; color:var(--muted);
+  }
+  .stats b{color:var(--brand); font-size:15px}
+  .stats .pill{
+    background:#e8f3ee; color:var(--ok); border:1px solid #cfe6dc;
+    border-radius:999px; padding:3px 10px; font-weight:600;
+  }
+  .stats .pill.res{
+    background:#fff6d9; color:#8a6a00; border-color:#f0e0a8; font-weight:700;
+  }
+
+  /* ===== الشبكة ===== */
+  main{
+    display:grid; gap:14px; padding:14px 16px 90px;
+    grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+    align-items:start;
+  }
+  @media (max-width:360px){ main{grid-template-columns:1fr} }
+
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    overflow:hidden; box-shadow:0 1px 3px rgba(20,40,30,.06);
+    transition:box-shadow .15s, transform .15s;
+    animation:pop .25s ease both;
+  }
+  @keyframes pop{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+  .card:hover{box-shadow:0 6px 18px rgba(20,40,30,.12)}
+
+  .card-head{
+    background:linear-gradient(135deg,#0d4f3c,#177a5c);
+    color:#fff; padding:12px 14px; display:flex; gap:8px; align-items:flex-start;
+  }
+  .card-head .title{
+    font-size:16px; font-weight:700; line-height:1.5; flex:1; word-break:break-word;
+  }
+  .count-badge{
+    flex:none; background:var(--gold); color:#2b2200; font-size:12px;
+    font-weight:700; border-radius:999px; padding:4px 10px; white-space:nowrap;
+    box-shadow:0 1px 3px rgba(0,0,0,.25);
+  }
+
+  .rows{padding:6px 14px 12px}
+  .row{
+    display:flex; gap:10px; padding:7px 0;
+    border-bottom:1px dashed #eee7d8; font-size:14px; line-height:1.7;
+  }
+  .row:last-child{border-bottom:none}
+  .row .k{
+    flex:none; min-width:88px; max-width:40%; color:var(--muted);
+    font-weight:600; font-size:13px;
+  }
+  .row .v{flex:1; word-break:break-word; color:var(--ink)}
+  .row .v.empty{color:#bbb}
+
+  /* ===== الحالات ===== */
+  .state{
+    grid-column:1/-1; text-align:center; padding:50px 20px; color:var(--muted);
+    font-size:15px;
+  }
+  .state .big{font-size:40px; margin-bottom:10px}
+  .loader{
+    grid-column:1/-1; text-align:center; padding:30px; color:var(--muted);
+    font-size:14px;
+  }
+  .spinner{
+    width:34px;height:34px;margin:0 auto 10px;border-radius:50%;
+    border:4px solid #d9e6e0; border-top-color:var(--brand);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  footer{
+    text-align:center; font-size:12px; color:var(--muted);
+    padding:0 16px 26px;
+  }
+
+  /* ===== نافذة QR ===== */
+  .modal{
+    position:fixed; inset:0; background:rgba(10,25,20,.72); z-index:100;
+    display:none; align-items:center; justify-content:center; padding:18px;
+    backdrop-filter:blur(3px);
+  }
+  .modal.open{display:flex}
+  .modal-box{
+    background:#fff; border-radius:18px; padding:22px; max-width:340px;
+    width:100%; text-align:center; position:relative;
+    box-shadow:0 20px 60px rgba(0,0,0,.4);
+    animation:pop .2s ease both;
+  }
+  .modal-box h2{margin:0 0 4px; font-size:18px; color:var(--brand)}
+  .modal-box p{margin:0 0 14px; font-size:13px; color:var(--muted)}
+  .modal-box img.qr{width:230px; height:230px; margin:0 auto; display:block; border:1px solid var(--line); border-radius:10px}
+  .url-box{
+    margin-top:14px; background:#f2f6f4; border:1px dashed #c3d5cd;
+    border-radius:10px; padding:10px; font-size:15px; font-weight:700;
+    color:var(--brand); word-break:break-all; direction:ltr;
+    font-family:Consolas,"Courier New",monospace;
+  }
+  .url-box.stable{
+    background:#fff6d9; border:1px solid #f0e0a8; color:#8a6a00;
+    font-size:16px; margin-top:0;
+  }
+  .hint{font-size:12px; color:var(--muted); margin-top:8px}
+  .close-x{
+    position:absolute; top:10px; left:12px; border:none; background:none;
+    font-size:26px; line-height:1; color:#999; cursor:pointer; padding:4px;
+  }
+
+  /* ===== نافذة تحديث الإكسل ===== */
+  .modal-box input.fld{
+    width:100%; padding:12px 14px; border:1px solid var(--line);
+    border-radius:10px; font-size:16px; font-family:inherit; background:#fff;
+    color:var(--ink); outline:none; margin-bottom:10px; text-align:right;
+  }
+  .modal-box input.fld:focus{border-color:var(--gold)}
+  .modal-box input.file{
+    width:100%; font-size:13px; color:var(--muted); margin-bottom:12px;
+    font-family:inherit;
+  }
+  .modal-box .primary{
+    width:100%; background:var(--brand); color:#fff; border:none;
+    border-radius:11px; padding:13px; font-size:15px; font-family:inherit;
+    font-weight:700; cursor:pointer; box-shadow:0 3px 10px rgba(13,79,60,.3);
+  }
+  .modal-box .primary:active{transform:scale(.98)}
+  .modal-box .primary:disabled{opacity:.55; cursor:default}
+  #upMsg{min-height:20px; margin-top:10px; font-size:13px; font-weight:600}
+  #upMsg.err{color:#b3261e}
+  #upMsg.ok{color:var(--ok)}
+
+  /* ===== نافذة أجزاء الكتاب ===== */
+  #partsModal .modal-box{
+    max-width:680px; width:100%; padding:0; text-align:right;
+    max-height:86vh; display:flex; flex-direction:column; overflow:hidden;
+    cursor:pointer;
+  }
+  .p-top{
+    padding:16px 48px 12px 16px; border-bottom:1px solid var(--line);
+    background:#f6faf8; flex:none;
+  }
+  .p-top h2{
+    margin:0; font-size:17px; color:var(--brand); line-height:1.5;
+    word-break:break-word;
+  }
+  .p-top .sub{font-size:13px; color:var(--muted); margin-top:4px; font-weight:600}
+  .p-body{
+    overflow-y:auto; -webkit-overflow-scrolling:touch; padding:12px 14px 18px;
+  }
+  .part{
+    border:1px solid var(--line); border-radius:12px; overflow:hidden;
+    margin-bottom:12px; background:#fff;
+    box-shadow:0 1px 2px rgba(20,40,30,.05);
+  }
+  .part:last-child{margin-bottom:0}
+  .part-h{
+    background:linear-gradient(135deg,#0d4f3c,#177a5c); color:#fff;
+    padding:8px 12px; font-size:13.5px; font-weight:700;
+    display:flex; gap:8px; align-items:center; justify-content:space-between;
+  }
+  .part-h .pn{
+    flex:none; background:var(--gold); color:#2b2200; border-radius:999px;
+    font-size:11px; padding:2px 9px;
+  }
+  .part .rows{padding:4px 12px 8px}
+
+  /* ===== سطر دعوة أسفل البطاقة ===== */
+  .card-foot{
+    padding:7px 14px; font-size:12.5px; font-weight:600; color:var(--brand2);
+    background:#f2f7f5; border-top:1px dashed var(--line);
+  }
+
+  /* ===== زر العودة للأعلى ===== */
+  #top{
+    position:fixed; bottom:18px; left:18px; z-index:60;
+    width:46px; height:46px; border-radius:50%; border:none;
+    background:var(--brand); color:#fff; font-size:20px; cursor:pointer;
+    box-shadow:0 4px 14px rgba(0,0,0,.3); display:none;
+    align-items:center; justify-content:center;
+  }
+  #top.show{display:flex}
+
+  /* ===== بطاقات أكثر كثافة وأجمل على الشاشات الكبيرة ===== */
+  @media (min-width:768px){
+    main{
+      grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+      gap:10px; padding:12px 14px 90px;
+    }
+    .card-head{padding:10px 12px; gap:7px}
+    .card-head .title{
+      font-size:14.5px; line-height:1.45;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+    .count-badge{font-size:11px; padding:3px 9px}
+    .rows{padding:3px 11px 8px}
+    .row{padding:4px 0; font-size:12.5px; line-height:1.5; gap:7px}
+    .row .k{min-width:62px; max-width:44%; font-size:11.5px; line-height:1.45}
+    .row .v{
+      display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical;
+      overflow:hidden; line-height:1.5;
+    }
+    .card-foot{padding:6px 12px; font-size:12px}
+    .stats{padding-top:10px}
+  }
+
+  @media (max-width:768px){
+    /* الهاتف: الهيدر يمرّ مع الصفحة، ويُثبت شريط البحث وحده عند النزول */
+    header{position:static; height:auto; padding:10px 14px}
+    .tools-bar{top:0; z-index:50}
+  }
+
+  @media (max-width:480px){
+    .brand h1{font-size:16px}
+    .logo{width:34px;height:34px;font-size:17px;border-radius:9px}
+    header{padding:8px 12px}
+    .tools-bar{padding:8px 12px}
+    .qr-btn{padding:7px 10px; font-size:12px}
+    .stats{gap:8px; font-size:12px; padding:10px 12px 0}
+    main{gap:10px; padding:12px 10px 90px}
+    .row .k{min-width:74px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">📚</div>
+    <div>
+      <h1>مكتبة السبزواري العامة</h1>
+    </div>
+    <div class="spacer"></div>
+    <button class="qr-btn mini" id="updBtn" title="تحديث ملف الإكسل">⟳</button>
+    <button class="qr-btn" id="qrBtn" title="مشاركة الرابط">📱 المشاركة</button>
+  </div>
+</header>
+
+<div class="tools-bar">
+  <div class="tools">
+    <div class="search-wrap">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+      <input id="q" type="search" placeholder="ابحث باسم الكتاب أو المؤلف…" autocomplete="off"
+             title="البحث يشمل كل التصنيفات">
+      <div class="sugg" id="sugg" hidden></div>
+    </div>
+    <select id="cat"><option value="">كل التصنيفات</option></select>
+  </div>
+</div>
+
+<div class="stats">
+  <span>الكتب: <b id="s-books">…</b></span>
+  <span>الصفوف: <b id="s-rows">…</b></span>
+  <span class="pill" id="s-merged">…</span>
+  <span class="pill res" id="s-results" hidden></span>
+</div>
+
+<main id="grid">
+  <div class="loader" id="loader"><div class="spinner"></div>جارٍ تحميل الفهرس…</div>
+</main>
+
+<footer id="footer"></footer>
+
+<button id="top" title="الأعلى">▲</button>
+
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <button class="close-x" id="closeX" aria-label="إغلاق">×</button>
+    <h2>امسح الرمز للدخول</h2>
+    <p>الرمز يفتح الرابط الثابت — يعمل من أي مكان ولا يتغيّر</p>
+    <img class="qr" id="qrImg" src="/qr.png" alt="QR">
+    <div class="url-box stable" id="extText" hidden>…</div>
+  </div>
+</div>
+
+<div class="modal" id="upModal">
+  <div class="modal-box">
+    <button class="close-x" id="upClose" aria-label="إغلاق">×</button>
+    <h2>⟳ تحديث ملف الإكسل</h2>
+    <p>أدخل كلمة السر ثم اختر ملف الإكسل الجديد (.xlsx)</p>
+    <input class="fld" id="upPw" type="password" inputmode="numeric"
+           placeholder="كلمة السر" autocomplete="off">
+    <input class="file" id="upFile" type="file" accept=".xlsx">
+    <button class="primary" id="upGo">رفع وتحديث</button>
+    <div id="upMsg"></div>
+    <div class="hint">سيُحفظ ملفك الحالي كنسخة احتياطية تلقائياً</div>
+  </div>
+</div>
+
+<div class="modal" id="partsModal">
+  <div class="modal-box">
+    <div class="p-top">
+      <button class="close-x" id="partsClose" aria-label="إغلاق">×</button>
+      <h2 id="partsTitle">…</h2>
+      <div class="sub" id="partsSub">جارٍ التحميل…</div>
+    </div>
+    <div class="p-body" id="partsList"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const grid = document.getElementById('grid');
+  const qInput = document.getElementById('q');
+  const catSel = document.getElementById('cat');
+  const loader = document.getElementById('loader');
+  const PER = 60;
+
+  let state = { q:'', cat:'', page:1, total:0, pages:0, busy:false, done:false,
+                all:null, stamp:0 };
+
+  const fmt = n => Number(n).toLocaleString('ar-EG');
+
+  /* ---------- عدّاد النتائج ---------- */
+  const resPill = document.getElementById('s-results');
+  function updateResults(total, pending){
+    const active = !!(state.q || state.cat);
+    if(!active){ resPill.hidden = true; resPill.textContent = ''; return; }
+    resPill.hidden = false;
+    if(pending){ resPill.textContent = 'جارٍ العد…'; return; }
+    let txt = 'عدد النتائج: ' + fmt(total);
+    if(state.q && state.cat) txt += ' (من كل التصنيفات)';
+    resPill.textContent = txt;
+    resPill.title = state.q
+      ? 'البحث يشمل كل التصنيفات حتى لو كنت على تصنيف محدد'
+      : 'داخل التصنيف المحدد';
+  }
+
+  /* ---------- الإحصاء والتصنيفات ---------- */
+  fetch('/api/meta').then(r=>r.json()).then(m=>{
+    document.getElementById('s-books').textContent = fmt(m.books);
+    document.getElementById('s-rows').textContent = fmt(m.rows);
+    document.getElementById('s-merged').textContent =
+      'دُمج ' + fmt(m.merged) + ' صف مكرر في ' + fmt(m.dup_groups) + ' كتاباً';
+    if(m.external){
+      document.getElementById('extText').hidden = false;
+      document.getElementById('extText').textContent = m.external;
+    }
+    document.getElementById('footer').textContent =
+      'يعمل داخل شبكة المكتبة بدون إنترنت — الكتب: ' + fmt(m.books);
+
+    const cats = (m.categories||[]).slice().sort((a,b)=>a[0].localeCompare(b[0],'ar'));
+    cats.forEach(([label,cnt,key])=>{
+      const o = document.createElement('option');
+      o.value = key;
+      o.textContent = label + ' (' + fmt(cnt) + ')';
+      catSel.appendChild(o);
+    });
+  }).catch(()=>{
+    document.getElementById('s-books').textContent = '—';
+  });
+
+  /* ---------- البحث ---------- */
+  function debounce(fn, ms){
+    let t; return function(){ clearTimeout(t); t = setTimeout(fn, ms); };
+  }
+
+  async function fetchBooks(){
+    const p = new URLSearchParams({
+      q: state.q, cat: state.cat, page: state.page, per: PER
+    });
+    const r = await fetch('/api/books?' + p.toString());
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  function resetAndLoad(){
+    state.page = 1; state.done = false;
+    state.stamp++;               // يُلغي أي طلب قديم لا يزال في الطريق
+    updateResults(0, true);
+    grid.innerHTML = '';
+    const l = document.createElement('div');
+    l.className = 'loader';
+    l.innerHTML = '<div class="spinner"></div>جارٍ البحث…';
+    grid.appendChild(l);
+    load();
+  }
+
+  async function load(){
+    if(state.busy || state.done) return;
+    state.busy = true;
+    const stamp = state.stamp;
+    ensureBottomLoader();
+    try{
+      const data = await fetchBooks();
+      if(stamp !== state.stamp) return;   // بحث أحدث ألغى هذا الطلب القديم
+      state.total = data.total; state.pages = data.pages;
+      updateResults(data.total, false);
+      const old = grid.querySelector('.loader, .state');
+      if(old) old.remove();
+      if(state.page === 1 && data.items.length === 0){
+        grid.innerHTML = '<div class="state"><div class="big">🔍</div>لا توجد نتائج مطابقة لبحثك</div>';
+        state.done = true;
+      } else {
+        data.items.forEach(it => grid.appendChild(makeCard(it)));
+        if(state.page >= data.pages){
+          state.done = true;
+          const m = document.createElement('div');
+          m.className = 'state';
+          m.style.padding = '20px';
+          m.textContent = '— وصلت إلى نهاية الفهرس (' + fmt(state.total) + ' كتاباً) —';
+          grid.appendChild(m);
+        }
+      }
+    }catch(e){
+      if(stamp !== state.stamp) return;
+      grid.innerHTML = '<div class="state"><div class="big">⚠️</div>تعذّر تحميل البيانات — تأكد من تشغيل الخادم</div>';
+      state.done = true;
+    }finally{
+      state.busy = false;
+      removeBottomLoader();
+      if(stamp !== state.stamp){ load(); return; }
+      // تحميل تلقائي: إن بقي المحتوى أقل من شاشتين نكمل فوراً
+      setTimeout(maybeLoadMore, 60);
+    }
+  }
+
+  /* ---------- التحميل التلقائي عند الوصول للنهاية ---------- */
+  function nearBottom(){
+    const el = document.documentElement;
+    return (window.innerHeight + window.scrollY) >= (el.scrollHeight - 800);
+  }
+
+  function maybeLoadMore(){
+    if(state.busy || state.done) return;
+    if(nearBottom()) load();
+  }
+
+  function ensureBottomLoader(){
+    if(document.getElementById('moreLoader')) return;
+    const el = document.createElement('div');
+    el.id = 'moreLoader';
+    el.className = 'loader';
+    el.style.padding = '14px';
+    const sp = document.createElement('div');
+    sp.className = 'spinner';
+    sp.style.width = '26px';
+    sp.style.height = '26px';
+    sp.style.borderWidth = '3px';
+    el.appendChild(sp);
+    el.appendChild(document.createTextNode('جارٍ تحميل المزيد…'));
+    grid.appendChild(el);
+  }
+
+  function removeBottomLoader(){
+    const el = document.getElementById('moreLoader');
+    if(el) el.remove();
+  }
+
+  window.addEventListener('scroll', maybeLoadMore, {passive:true});
+  window.addEventListener('resize', maybeLoadMore, {passive:true});
+  // شبكة أمان: فحص دوري (يعمل حتى لو لم تصل أحداث التمرير فوراً)
+  setInterval(maybeLoadMore, 800);
+
+  function makeCard(it){
+    const card = document.createElement('article');
+    card.className = 'card';
+
+    const head = document.createElement('div');
+    head.className = 'card-head';
+    const title = document.createElement('div');
+    title.className = 'title';
+    title.textContent = it.t;
+    head.appendChild(title);
+    if(it.n > 1){
+      const badge = document.createElement('span');
+      badge.className = 'count-badge';
+      badge.textContent = 'عدد الأجزاء : ' + fmt(it.n);
+      badge.title = 'عدد أجزاء هذا الكتاب';
+      head.appendChild(badge);
+    }
+    card.appendChild(head);
+
+    const rows = document.createElement('div');
+    rows.className = 'rows';
+    it.f.forEach(([k,v])=>{
+      // عند وجود أجزاء: يظهر العمود العدد الكلي للأجزاء بدل رقم الجزء الأول
+      const nk = k.trim().replace(/[أإآ]/g, 'ا');
+      if((nk === 'الاجزاء' || nk === 'الجزء') && it.n > 1) v = fmt(it.n);
+      const row = document.createElement('div');
+      row.className = 'row';
+      const kk = document.createElement('span');
+      kk.className = 'k'; kk.textContent = k; kk.title = k;
+      const vv = document.createElement('span');
+      vv.className = 'v' + (v ? '' : ' empty');
+      vv.textContent = v || '—';
+      vv.title = v || '';
+      row.appendChild(kk); row.appendChild(vv);
+      rows.appendChild(row);
+    });
+    card.appendChild(rows);
+
+    const foot = document.createElement('div');
+    foot.className = 'card-foot';
+    foot.textContent = it.n > 1
+      ? '◂ اضغط لعرض الأجزاء (' + fmt(it.n) + ')'
+      : '◂ اضغط لعرض التفاصيل';
+    card.appendChild(foot);
+
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', ()=> openParts(it.i));
+    return card;
+  }
+
+  /* ---------- نافذة أجزاء الكتاب ---------- */
+  const partsModal = document.getElementById('partsModal');
+  const partsTitle = document.getElementById('partsTitle');
+  const partsSub = document.getElementById('partsSub');
+  const partsList = document.getElementById('partsList');
+
+  function closeParts(){ partsModal.classList.remove('open'); }
+
+  async function openParts(i){
+    partsTitle.textContent = '…';
+    partsSub.textContent = 'جارٍ تحميل الأجزاء…';
+    partsList.innerHTML = '';
+    partsModal.classList.add('open');
+    try{
+      const r = await fetch('/api/parts?i=' + encodeURIComponent(i));
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      if(!d.ok) throw new Error(d.error || 'غير موجود');
+      partsTitle.textContent = d.t;
+      partsSub.textContent = (d.a ? d.a + ' — ' : '') +
+        'عدد الأجزاء: ' + fmt(d.n);
+      (d.parts || []).forEach((p, idx)=>{
+        const box = document.createElement('div');
+        box.className = 'part';
+        const h = document.createElement('div');
+        h.className = 'part-h';
+        const label = document.createElement('span');
+        label.textContent = d.n > 1 ? 'الجزء ' + fmt(idx + 1) : 'بيانات الكتاب';
+        h.appendChild(label);
+        if(d.n > 1){
+          const pn = document.createElement('span');
+          pn.className = 'pn';
+          pn.textContent = fmt(idx + 1) + ' / ' + fmt(d.n);
+          h.appendChild(pn);
+        }
+        box.appendChild(h);
+        const rows = document.createElement('div');
+        rows.className = 'rows';
+        d.headers.forEach((k, j)=>{
+          const v = (p[j] || '').toString();
+          if(!v) return;
+          const row = document.createElement('div');
+          row.className = 'row';
+          const kk = document.createElement('span');
+          kk.className = 'k'; kk.textContent = k;
+          const vv = document.createElement('span');
+          vv.className = 'v'; vv.textContent = v;
+          row.appendChild(kk); row.appendChild(vv);
+          rows.appendChild(row);
+        });
+        box.appendChild(rows);
+        partsList.appendChild(box);
+      });
+      partsList.scrollTop = 0;
+    }catch(e){
+      partsTitle.textContent = 'تعذّر تحميل الأجزاء';
+      partsSub.textContent = e.message || 'خطأ غير معروف';
+    }
+  }
+
+  // الإغلاق: الضغط في أي مكان داخل أو خارج النافذة، أو زر ×، أو مفتاح Esc
+  partsModal.addEventListener('click', closeParts);
+  document.addEventListener('keydown', e=>{
+    if(e.key === 'Escape' && partsModal.classList.contains('open')) closeParts();
+  });
+
+  const onSearch = debounce(()=>{ state.q = qInput.value.trim(); resetAndLoad(); }, 300);
+  qInput.addEventListener('input', onSearch);
+  catSel.addEventListener('change', ()=>{ state.cat = catSel.value; resetAndLoad(); });
+
+  /* ---------- الإكمال التلقائي (شبيه بجوجل) ---------- */
+  const suggBox = document.getElementById('sugg');
+  let suggList = [], suggIdx = -1, suggTimer = null;
+
+  function hideSugg(){
+    suggBox.hidden = true;
+    suggBox.innerHTML = '';
+    suggList = []; suggIdx = -1;
+  }
+
+  function renderSugg(list){
+    suggBox.innerHTML = '';
+    suggList = list; suggIdx = -1;
+    if(!list.length){ hideSugg(); return; }
+    list.forEach((s, i)=>{
+      const el = document.createElement('div');
+      el.className = 'item';
+      const ic = document.createElement('span');
+      ic.className = 'ic'; ic.textContent = '🔍';
+      const txt = document.createElement('span');
+      txt.className = 'txt'; txt.textContent = s;
+      el.appendChild(ic); el.appendChild(txt);
+      el.addEventListener('mousedown', e=>{ e.preventDefault(); pickSugg(i); });
+      suggBox.appendChild(el);
+    });
+    suggBox.hidden = false;
+  }
+
+  function moveSugg(delta){
+    if(!suggList.length) return;
+    suggIdx = (suggIdx + delta + suggList.length) % suggList.length;
+    const items = suggBox.querySelectorAll('.item');
+    items.forEach((el, i)=> el.classList.toggle('on', i === suggIdx));
+    if(items[suggIdx]) items[suggIdx].scrollIntoView({block:'nearest'});
+  }
+
+  function pickSugg(i){
+    if(i < 0 || i >= suggList.length) return;
+    qInput.value = suggList[i];
+    hideSugg();
+    state.q = qInput.value.trim();
+    resetAndLoad();
+    qInput.focus();
+  }
+
+  async function updateSugg(){
+    const v = qInput.value.trim();
+    if(v.length < 1){ hideSugg(); return; }
+    try{
+      const r = await fetch('/api/suggest?n=8&q=' + encodeURIComponent(v));
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      // إذا غيّر الطالب النص أثناء الطلب نتجاهل النتيجة القديمة
+      if(v === qInput.value.trim()) renderSugg(d.suggestions || []);
+    }catch(e){ /* صامت: الإكمال ترف لا أساس */ }
+  }
+
+  const onSuggest = debounce(updateSugg, 140);
+  qInput.addEventListener('input', onSuggest);
+  qInput.addEventListener('focus', ()=>{ if(qInput.value.trim()) onSuggest(); });
+  qInput.addEventListener('keydown', e=>{
+    if(suggBox.hidden) return;
+    if(e.key === 'ArrowDown'){ e.preventDefault(); moveSugg(1); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); moveSugg(-1); }
+    else if(e.key === 'Enter'){
+      if(suggIdx >= 0){ e.preventDefault(); pickSugg(suggIdx); }
+      else hideSugg();
+    }
+    else if(e.key === 'Escape'){ hideSugg(); }
+  });
+  document.addEventListener('click', e=>{
+    if(!suggBox.hidden && !e.target.closest('.search-wrap')) hideSugg();
+  });
+
+  /* ---------- تحديث ملف الإكسل ---------- */
+  const upModal = document.getElementById('upModal');
+  const upPw = document.getElementById('upPw');
+  const upFile = document.getElementById('upFile');
+  const upGo = document.getElementById('upGo');
+  const upMsg = document.getElementById('upMsg');
+
+  function setUpMsg(text, kind){
+    upMsg.textContent = text;
+    upMsg.className = kind || '';
+  }
+
+  document.getElementById('updBtn').onclick = ()=>{
+    upPw.value = ''; upFile.value = '';
+    setUpMsg('');
+    upGo.disabled = false; upGo.textContent = 'رفع وتحديث';
+    upModal.classList.add('open');
+    setTimeout(()=> upPw.focus(), 120);
+  };
+  document.getElementById('upClose').onclick = ()=> upModal.classList.remove('open');
+  upModal.addEventListener('click', e=>{ if(e.target === upModal) upModal.classList.remove('open'); });
+  upPw.addEventListener('keydown', e=>{ if(e.key === 'Enter') upGo.click(); });
+
+  upGo.onclick = async ()=>{
+    const pw = upPw.value.trim();
+    const f = upFile.files[0];
+    if(!pw){ setUpMsg('⚠️ أدخل كلمة السر', 'err'); return; }
+    if(!f){ setUpMsg('⚠️ اختر ملف الإكسل أولاً', 'err'); return; }
+    if(!/\.xlsx$/i.test(f.name)){ setUpMsg('⚠️ يجب أن يكون الملف بصيغة xlsx', 'err'); return; }
+
+    upGo.disabled = true; upGo.textContent = 'جارٍ الرفع والقراءة…';
+    setUpMsg('');
+    try{
+      const buf = await f.arrayBuffer();
+      const r = await fetch(
+        '/api/upload?pw=' + encodeURIComponent(pw) +
+        '&name=' + encodeURIComponent(f.name),
+        {method:'POST', headers:{'Content-Type':'application/octet-stream'}, body: buf}
+      );
+      const d = await r.json().catch(()=>({ok:false, error:'رد غير متوقع من الخادم'}));
+      if(!d.ok) throw new Error(d.error || ('HTTP ' + r.status));
+      setUpMsg('✅ تم التحديث بنجاح — ' + fmt(d.books) + ' كتاباً — جارٍ إعادة التحميل…', 'ok');
+      setTimeout(()=> location.reload(), 1400);
+    }catch(e){
+      setUpMsg('⚠️ ' + (e.message || 'تعذّر الرفع'), 'err');
+      upGo.disabled = false; upGo.textContent = 'رفع وتحديث';
+    }
+  };
+
+  /* ---------- زر العودة للأعلى ---------- */
+  const topBtn = document.getElementById('top');
+  window.addEventListener('scroll', ()=>{
+    topBtn.classList.toggle('show', window.scrollY > 500);
+  }, {passive:true});
+  topBtn.onclick = ()=> window.scrollTo({top:0, behavior:'smooth'});
+
+  /* ---------- نافذة QR ---------- */
+  const modal = document.getElementById('modal');
+  document.getElementById('qrBtn').onclick = ()=> modal.classList.add('open');
+  document.getElementById('closeX').onclick = ()=> modal.classList.remove('open');
+  modal.addEventListener('click', e=>{ if(e.target === modal) modal.classList.remove('open'); });
+
+  load();
+})();
+</script>
+<div id="pwaInstall" hidden style="position:fixed;bottom:16px;left:16px;right:16px;max-width:400px;margin:0 auto;background:#fff;border:1px solid #e4ded1;border-radius:16px;box-shadow:0 10px 34px rgba(10,25,20,.28);padding:14px 16px;z-index:95;display:flex;gap:12px;align-items:flex-start;font-family:'Segoe UI',Tahoma,Arial,sans-serif">
+  <div style="width:44px;height:44px;border-radius:11px;background:#0d4f3c;display:flex;align-items:center;justify-content:center;font-size:22px;flex:none">📚</div>
+  <div style="flex:1;min-width:0">
+    <div style="font-weight:700;color:#1d2b26;font-size:15px">تثبيت مكتبة السبزواري العامة</div>
+    <div style="color:#6b7a74;font-size:12.5px;line-height:1.6;margin-top:3px" id="pwaText">أضِفه إلى شاشة هاتفك وافتحه بضغطة واحدة — مثل تطبيقات التواصل</div>
+    <div style="display:flex;gap:8px;margin-top:11px">
+      <button id="pwaYes" style="flex:1;padding:9px 10px;border:0;border-radius:10px;background:#0d4f3c;color:#fff;font-size:14px;font-weight:700;cursor:pointer">تثبيت</button>
+      <button id="pwaNo" style="padding:9px 14px;border:1px solid #e4ded1;border-radius:10px;background:#fff;color:#6b7a74;font-size:14px;cursor:pointer">لاحقاً</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var KEY='pwaInstallOff', deferred=null;
+  var box=document.getElementById('pwaInstall');
+  var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
+  function wasOff(){ try{ var t=+localStorage.getItem(KEY); return t && (Date.now()-t)<30*86400000; }catch(e){ return false; } }
+  function hide(){ box.hidden=true; }
+  function off(){ hide(); try{ localStorage.setItem(KEY,String(Date.now())); }catch(e){} }
+  window.addEventListener('beforeinstallprompt',function(e){
+    e.preventDefault(); deferred=e;
+    if(!wasOff()) box.hidden=false;
+  });
+  window.addEventListener('appinstalled',hide);
+  var yes=document.getElementById('pwaYes'), no=document.getElementById('pwaNo');
+  yes.onclick=function(){
+    if(deferred){ hide(); deferred.prompt(); deferred.userChoice.then(function(){ deferred=null; }); }
+    else { off(); }
+  };
+  no.onclick=off;
+  // iOS Safari: التثبيت يدوياً عبر زر المشاركة في المتصفح
+  if(isIOS && !window.navigator.standalone && !wasOff()){
+    setTimeout(function(){
+      if(deferred) return;
+      document.getElementById('pwaText').textContent='افتح قائمة المشاركة في المتصفح ثم اختر «إضافة إلى الشاشة الرئيسية»';
+      yes.textContent='فهمت'; box.hidden=false;
+    },2500);
+  }
+  // اختبار الشريط يدوياً: إضافة ?pwa=1 إلى الرابط
+  if(/[?&]pwa=1/.test(location.search)) box.hidden=false;
+  if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  }
+})();
+</script>
+</body>
+</html>
