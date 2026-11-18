@@ -387,7 +387,7 @@
     <input class="fld" id="upPw" type="password" inputmode="numeric"
            placeholder="كلمة السر" autocomplete="off">
     <input class="file" id="upFile" type="file" accept=".xlsx">
-    <button class="primary" id="upGo">رفع وتحديث</button>
+    <button class="primary" id="upGo" disabled>رفع وتحديث (متاح على الخادم فقط)</button>
     <div id="upMsg"></div>
     <div class="hint">سيُحفظ ملفك الحالي كنسخة احتياطية تلقائياً</div>
   </div>
@@ -418,6 +418,35 @@
 
   const fmt = n => Number(n).toLocaleString('ar-EG');
 
+  const DATA_READY_FULL = fetch('data.json').then(r=>{
+    if(!r.ok) throw new Error('تعذّر تحميل بيانات الفهرس');
+    return r.json();
+  });
+  const DATA_READY = DATA_READY_FULL.then(d=>d.meta);
+  const staticNorm = v => String(v || '').replace(/[ً-ْٰـ]/g,'')
+    .replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+    .replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/[٠-٩]/g,c=>String(c.charCodeAt(0)-1632))
+    .replace(/[۰-۹]/g,c=>String(c.charCodeAt(0)-1776)).replace(/\s+/g,' ').trim();
+  const staticMerge = v => staticNorm(v).replace(/\s/g,'');
+  function staticBooks(d, q, cat, page, per){
+    const tokens = staticNorm(q).split(/\s+/).filter(Boolean);
+    const joined = staticMerge(q);
+    let sel=[];
+    d.items.forEach((it,i)=>{
+      if(cat && !tokens.length && d.cat_of[i] !== cat) return;
+      const hay = d.search[i] || '';
+      if(tokens.length && !tokens.every(t=>hay.includes(t))) return;
+      sel.push(i);
+    });
+    if(tokens.length){
+      sel.sort((i,j)=>{
+        const rank=i=>{const t=staticMerge(d.items[i].t),a=staticMerge(d.items[i].a); if(joined&&t===joined)return 0; if(joined&&t.includes(joined))return 1; if(tokens.every(x=>t.includes(x)))return 2; if(tokens.every(x=>a.includes(x)))return 3; return 4;}; return rank(i)-rank(j);
+      });
+    }
+    const total=sel.length, pages=Math.max(1,Math.ceil(total/per));
+    return {total,page,pages,per,items:sel.slice((page-1)*per,page*per).map(i=>({...d.items[i],i}))};
+  }
+
   /* ---------- عدّاد النتائج ---------- */
   const resPill = document.getElementById('s-results');
   function updateResults(total, pending){
@@ -434,7 +463,7 @@
   }
 
   /* ---------- الإحصاء والتصنيفات ---------- */
-  fetch('/api/meta').then(r=>r.json()).then(m=>{
+  DATA_READY.then(m=>{
     document.getElementById('s-books').textContent = fmt(m.books);
     document.getElementById('s-rows').textContent = fmt(m.rows);
     document.getElementById('s-merged').textContent =
@@ -466,9 +495,8 @@
     const p = new URLSearchParams({
       q: state.q, cat: state.cat, page: state.page, per: PER
     });
-    const r = await fetch('/api/books?' + p.toString());
-    if(!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
+    const d = await DATA_READY_FULL;
+    return staticBooks(d, state.q, state.cat, state.page, PER);
   }
 
   function resetAndLoad(){
@@ -623,10 +651,10 @@
     partsList.innerHTML = '';
     partsModal.classList.add('open');
     try{
-      const r = await fetch('/api/parts?i=' + encodeURIComponent(i));
-      if(!r.ok) throw new Error('HTTP ' + r.status);
-      const d = await r.json();
-      if(!d.ok) throw new Error(d.error || 'غير موجود');
+      const all = await DATA_READY_FULL;
+      const it = all.items[Number(i)];
+      if(!it) throw new Error('هذا الكتاب غير موجود');
+      const d = {ok:true,t:it.t,a:it.a,n:it.n,headers:all.headers,parts:it.r};
       partsTitle.textContent = d.t;
       partsSub.textContent = (d.a ? d.a + ' — ' : '') +
         'عدد الأجزاء: ' + fmt(d.n);
@@ -728,11 +756,17 @@
     const v = qInput.value.trim();
     if(v.length < 1){ hideSugg(); return; }
     try{
-      const r = await fetch('/api/suggest?n=8&q=' + encodeURIComponent(v));
-      if(!r.ok) throw new Error('HTTP ' + r.status);
-      const d = await r.json();
-      // إذا غيّر الطالب النص أثناء الطلب نتجاهل النتيجة القديمة
-      if(v === qInput.value.trim()) renderSugg(d.suggestions || []);
+      const d = await DATA_READY_FULL;
+      const joined = staticMerge(v);
+      const tokens = staticNorm(v).split(/\s+/).filter(Boolean);
+      const scored=[];
+      (d.suggest || []).forEach(([base,disp,mk])=>{
+        let sc=-1; if(mk.startsWith(joined)) sc=base; else if(mk.includes(joined)) sc=2+base; else if(tokens.every(t=>mk.includes(t))) sc=4+base;
+        if(sc>=0) scored.push([sc,mk.length,disp]);
+      });
+      scored.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+      const out=[]; const seen=new Set(); for(const x of scored){if(!seen.has(x[2])){seen.add(x[2]);out.push(x[2]);} if(out.length>=8)break;}
+      if(v === qInput.value.trim()) renderSugg(out);
     }catch(e){ /* صامت: الإكمال ترف لا أساس */ }
   }
 
@@ -777,6 +811,7 @@
   upPw.addEventListener('keydown', e=>{ if(e.key === 'Enter') upGo.click(); });
 
   upGo.onclick = async ()=>{
+    setUpMsg('هذه النسخة المنشورة على GitHub Pages للعرض فقط. تحديث Excel يتم من الخادم الأصلي.', 'err'); return;
     const pw = upPw.value.trim();
     const f = upFile.files[0];
     if(!pw){ setUpMsg('⚠️ أدخل كلمة السر', 'err'); return; }
