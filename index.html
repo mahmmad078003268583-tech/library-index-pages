@@ -203,9 +203,21 @@
   }
   .url-box.stable{
     background:#fff6d9; border:1px solid #f0e0a8; color:#8a6a00;
-    font-size:16px; margin-top:0;
+    font-size:16px; margin-top:0; user-select:all; -webkit-user-select:all;
+    cursor:text;
   }
   .hint{font-size:12px; color:var(--muted); margin-top:8px}
+  .share-row{display:flex; gap:8px; margin-top:12px}
+  .share-btn{
+    flex:1; border:1px solid var(--line); background:#f6faf8; color:var(--brand);
+    border-radius:11px; padding:12px 8px; font-size:14px; font-family:inherit;
+    font-weight:700; cursor:pointer; display:flex; align-items:center;
+    justify-content:center; gap:6px;
+  }
+  .share-btn:active{transform:scale(.98)}
+  .share-btn.primary-share{background:var(--brand); color:#fff; border-color:var(--brand)}
+  #shareMsg{min-height:18px; margin-top:8px; font-size:12px; font-weight:700; color:var(--ok)}
+  #shareMsg.err{color:#b3261e}
   .close-x{
     position:absolute; top:10px; left:12px; border:none; background:none;
     font-size:26px; line-height:1; color:#999; cursor:pointer; padding:4px;
@@ -375,7 +387,12 @@
     <h2>امسح الرمز للدخول</h2>
     <p>الرمز يفتح الرابط الثابت — يعمل من أي مكان ولا يتغيّر</p>
     <img class="qr" id="qrImg" src="qr.png" alt="QR">
-    <div class="url-box stable" id="extText" hidden>…</div>
+    <div class="url-box stable" id="extText">…</div>
+    <div class="share-row">
+      <button class="share-btn" id="copyLinkBtn" type="button">📋 نسخ الرابط</button>
+      <button class="share-btn primary-share" id="shareBtn" type="button">📤 مشاركة</button>
+    </div>
+    <div class="hint" id="shareMsg"></div>
   </div>
 </div>
 
@@ -423,6 +440,7 @@
     return r.json();
   });
   const DATA_READY = DATA_READY_FULL.then(d=>d.meta);
+  let DATA_SHARE_URL = '';   // الرابط العام القادم من بيانات الفهرس (إن وُجد)
   let PARTS_READY = null;
   function getParts(){
     if(!PARTS_READY){
@@ -479,8 +497,8 @@
     document.getElementById('s-merged').textContent =
       'دُمج ' + fmt(m.merged) + ' صف مكرر في ' + fmt(m.dup_groups) + ' كتاباً';
     if(m.external){
-      document.getElementById('extText').hidden = false;
-      document.getElementById('extText').textContent = m.external;
+      DATA_SHARE_URL = m.external;
+      setShareUrl(m.external);
     }
     document.getElementById('footer').textContent =
       'يعمل داخل شبكة المكتبة بدون إنترنت — الكتب: ' + fmt(m.books);
@@ -855,11 +873,69 @@
   }, {passive:true});
   topBtn.onclick = ()=> window.scrollTo({top:0, behavior:'smooth'});
 
-  /* ---------- نافذة QR ---------- */
+  /* ---------- نافذة QR والمشاركة ---------- */
   const modal = document.getElementById('modal');
-  document.getElementById('qrBtn').onclick = ()=> modal.classList.add('open');
+  const extText = document.getElementById('extText');
+  const shareMsg = document.getElementById('shareMsg');
+  const FALLBACK_URL = 'https://mn2928.tailcdb1ac.ts.net/';
+  let shareUrl = FALLBACK_URL;
+
+  function setShareUrl(url){
+    shareUrl = (url || FALLBACK_URL).trim();
+    extText.textContent = shareUrl;
+    shareMsg.textContent = '';
+    shareMsg.classList.remove('err');
+  }
+
+  document.getElementById('qrBtn').onclick = ()=>{
+    // الرابط العام هو نفسه دائماً؛ صورة QR تشير إليه مباشرة.
+    if(DATA_SHARE_URL) setShareUrl(DATA_SHARE_URL);
+    modal.classList.add('open');
+  };
   document.getElementById('closeX').onclick = ()=> modal.classList.remove('open');
   modal.addEventListener('click', e=>{ if(e.target === modal) modal.classList.remove('open'); });
+
+  function toast(msg, isErr){
+    shareMsg.textContent = msg;
+    shareMsg.classList.toggle('err', !!isErr);
+  }
+
+  document.getElementById('copyLinkBtn').onclick = async ()=>{
+    try{
+      if(navigator.clipboard && window.isSecureContext){
+        await navigator.clipboard.writeText(shareUrl);
+      }else{
+        const ta = document.createElement('textarea');
+        ta.value = shareUrl;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+      toast('تم نسخ الرابط ✓');
+    }catch(e){
+      toast('تعذّر النسخ — انسخ الرابط يدوياً', true);
+    }
+  };
+
+  document.getElementById('shareBtn').onclick = async ()=>{
+    if(navigator.share){
+      try{
+        await navigator.share({
+          title: document.title,
+          text: 'مكتبة السبزواري العامة',
+          url: shareUrl
+        });
+        return;
+      }catch(e){
+        if(e && e.name === 'AbortError') return;
+      }
+    }
+    // fallback: انسخ الرابط إن كانت المشاركة غير متاحة
+    document.getElementById('copyLinkBtn').click();
+  };
 
   load();
 })();
