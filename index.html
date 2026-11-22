@@ -336,6 +336,14 @@
     main{gap:10px; padding:12px 10px 90px}
     .row .k{min-width:74px}
   }
+
+  .advanced-btn{border:none;border-radius:12px;padding:11px 13px;font-size:14px;font-family:inherit;background:#fff;color:var(--brand);cursor:pointer;font-weight:700}
+  .sort-select{border:none;border-radius:12px;padding:11px 10px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink);max-width:100%}
+  .adv-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0}
+  .adv-grid label{font-size:12px;color:var(--muted);text-align:right}
+  .adv-grid input{width:100%;margin-top:4px;padding:10px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:14px}
+  .adv-actions{display:flex;gap:8px}.adv-actions button{flex:1}
+  @media(max-width:480px){.adv-grid{grid-template-columns:1fr}.sort-select{flex:1;min-width:150px}}
 </style>
 </head>
 <body>
@@ -363,6 +371,12 @@
       <div class="sugg" id="sugg" hidden></div>
     </div>
     <select id="cat"><option value="">كل التصنيفات</option></select>
+    <select id="sort" class="sort-select" title="ترتيب النتائج">
+      <option value="relevance">الأكثر صلة</option><option value="titleAsc">العنوان: أ-ي</option>
+      <option value="titleDesc">العنوان: ي-أ</option><option value="authorAsc">المؤلف: أ-ي</option>
+      <option value="categoryAsc">التصنيف: أ-ي</option><option value="yearDesc">سنة الطبع: الأحدث</option>
+    </select>
+    <button id="advancedBtn" class="advanced-btn" type="button">⚙ بحث متقدم</button>
   </div>
 </div>
 
@@ -421,17 +435,32 @@
   </div>
 </div>
 
+<div class="modal" id="advancedModal">
+  <div class="modal-box">
+    <button class="close-x" id="advancedClose" aria-label="إغلاق">×</button>
+    <h2>بحث متقدم</h2><p>استخدم حقلاً واحداً أو أكثر لتضييق النتائج</p>
+    <div class="adv-grid">
+      <label>العنوان<input id="advTitle" placeholder="اسم الكتاب"></label>
+      <label>المؤلف<input id="advAuthor" placeholder="اسم المؤلف"></label>
+      <label>دار النشر<input id="advPublisher" placeholder="الناشر"></label>
+      <label>سنة الطبع<input id="advYear" placeholder="مثال: 2011"></label>
+    </div>
+    <div class="adv-actions"><button class="share-btn" id="advancedReset" type="button">مسح</button><button class="share-btn primary-share" id="advancedApply" type="button">تطبيق البحث</button></div>
+  </div>
+</div>
+
 <script>
 (function(){
   "use strict";
   const grid = document.getElementById('grid');
   const qInput = document.getElementById('q');
   const catSel = document.getElementById('cat');
+  const sortSel = document.getElementById('sort');
+  const advancedModal = document.getElementById('advancedModal');
   const loader = document.getElementById('loader');
   const PER = 60;
 
-  let state = { q:'', cat:'', page:1, total:0, pages:0, busy:false, done:false,
-                all:null, stamp:0 };
+  let state = { q:'', cat:'', sort:'relevance', adv:{title:'',author:'',publisher:'',year:''}, page:1, total:0, pages:0, busy:false, done:false, all:null, stamp:0 };
 
   const fmt = n => Number(n).toLocaleString('ar-EG');
 
@@ -459,19 +488,24 @@
   function staticBooks(d, q, cat, page, per){
     const tokens = staticNorm(q).split(/\s+/).filter(Boolean);
     const joined = staticMerge(q);
+    const valueOf=(it,names)=>{ const row=(it.f||[]).find(x=>names.some(n=>staticNorm(x[0]).includes(staticNorm(n)))); return row?String(row[1]||''):''; };
     let sel=[];
     d.items.forEach((it,i)=>{
-      if(cat && !tokens.length && d.cat_of[i] !== cat) return;
+      const title=staticNorm(it.t), author=staticNorm(it.a), publisher=staticNorm(valueOf(it,['دار النشر'])), year=staticNorm(valueOf(it,['سنة الطبع']));
+      if(cat && d.cat_of[i] !== cat) return;
+      if(state.adv.title && !title.includes(staticNorm(state.adv.title))) return;
+      if(state.adv.author && !author.includes(staticNorm(state.adv.author))) return;
+      if(state.adv.publisher && !publisher.includes(staticNorm(state.adv.publisher))) return;
+      if(state.adv.year && !year.includes(staticNorm(state.adv.year))) return;
       const hay = d.search[i] || '';
       if(tokens.length && !tokens.every(t=>hay.includes(t))) return;
       sel.push(i);
     });
-    if(tokens.length){
-      sel.sort((i,j)=>{
-        const rank=i=>{const t=staticMerge(d.items[i].t),a=staticMerge(d.items[i].a); if(joined&&t===joined)return 0; if(joined&&t.includes(joined))return 1; if(tokens.every(x=>t.includes(x)))return 2; if(tokens.every(x=>a.includes(x)))return 3; return 4;}; return rank(i)-rank(j);
-      });
-    }
-    const total=sel.length, pages=Math.max(1,Math.ceil(total/per));
+    if(state.sort==='relevance' && tokens.length){ sel.sort((i,j)=>{const rank=i=>{const t=staticMerge(d.items[i].t),a=staticMerge(d.items[i].a);if(joined&&t===joined)return 0;if(joined&&t.includes(joined))return 1;if(tokens.every(x=>t.includes(x)))return 2;if(tokens.every(x=>a.includes(x)))return 3;return 4};return rank(i)-rank(j)}); }
+    const key=(i,k)=>{const it=d.items[i];if(k==='title')return staticNorm(it.t);if(k==='author')return staticNorm(it.a);if(k==='category')return staticNorm((it.f||[]).find(x=>staticNorm(x[0]).includes('تصنيف'))?.[1]||'');if(k==='year')return parseInt(((it.f||[]).find(x=>staticNorm(x[0]).includes('سنة الطبع'))?.[1]||'').replace(/[^0-9]/g,''))||0;return ''};
+    const sortMap={titleAsc:['title',1],titleDesc:['title',-1],authorAsc:['author',1],categoryAsc:['category',1],yearDesc:['year',-1]};
+    if(sortMap[state.sort]){const [k,dir]=sortMap[state.sort];sel.sort((a,b)=>{const x=key(a,k),y=key(b,k);return (x<y?-1:x>y?1:0)*dir});}
+    const total=sel.length,pages=Math.max(1,Math.ceil(total/per));
     return {total,page,pages,per,items:sel.slice((page-1)*per,page*per).map(i=>({...d.items[i],i}))};
   }
 
@@ -735,6 +769,13 @@
   const onSearch = debounce(()=>{ state.q = qInput.value.trim(); resetAndLoad(); }, 300);
   qInput.addEventListener('input', onSearch);
   catSel.addEventListener('change', ()=>{ state.cat = catSel.value; resetAndLoad(); });
+  sortSel.addEventListener('change', ()=>{ state.sort = sortSel.value; resetAndLoad(); });
+  const advFields=['advTitle','advAuthor','advPublisher','advYear'];
+  document.getElementById('advancedBtn').onclick=()=>advancedModal.classList.add('open');
+  document.getElementById('advancedClose').onclick=()=>advancedModal.classList.remove('open');
+  document.getElementById('advancedApply').onclick=()=>{ state.adv={title:document.getElementById('advTitle').value.trim(),author:document.getElementById('advAuthor').value.trim(),publisher:document.getElementById('advPublisher').value.trim(),year:document.getElementById('advYear').value.trim()}; advancedModal.classList.remove('open'); resetAndLoad(); };
+  document.getElementById('advancedReset').onclick=()=>{ advFields.forEach(id=>document.getElementById(id).value=''); state.adv={title:'',author:'',publisher:'',year:''}; resetAndLoad(); };
+  advancedModal.addEventListener('click',e=>{if(e.target===advancedModal) advancedModal.classList.remove('open');});
 
   /* ---------- الإكمال التلقائي (شبيه بجوجل) ---------- */
   const suggBox = document.getElementById('sugg');
